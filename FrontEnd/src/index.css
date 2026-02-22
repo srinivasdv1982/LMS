@@ -1,0 +1,228 @@
+@import "tailwindcss";
+
+:root {
+  --primary-color: #2f3d4a;
+  --secondary-color: #ff5b5b;
+  --bg-light: #f4f6f9;
+  --text-white: #ffffff;
+  --text-dark: #333333;
+  --text-gray: #8c9bab;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --sidebar-width: 250px;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-light);
+  color: var(--text-dark);
+}
+
+/* Sidebar Styling from Template */
+.sidebar {
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--primary-color);
+  color: var(--text-white);
+  position: fixed;
+  left: 0;
+  top: 0;
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar h2 {
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+  letter-spacing: 1px;
+}
+
+.sidebar-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-item {
+  padding: 12px 16px;
+  margin-bottom: 4px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebar-item:hover {
+  background: var(--secondary-color);
+}
+
+.sidebar-item.active {
+  background: var(--secondary-color);
+  font-weight: 600;
+}
+
+/* Main Content Area */
+.main-content {
+  margin-left: var(--sidebar-width);
+  padding: 24px;
+  min-height: 100vh;
+}
+
+.topbar {
+  background: white;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e1e5ec;
+  margin: -24px -24px 24px -24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.topbar h3 {
+  margin: 0;
+  font-weight: 400;
+  color: #555;
+  font-size: 1.1rem;
+}
+
+/* KPI Cards */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.kpi-card {
+  background: white;
+  padding: 20px;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: transform 0.2s;
+  border: 1px solid #f0f0f0;
+}
+
+.kpi-icon-wrapper {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.kpi-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-card h3 {
+  margin: 0;
+  font-size: 2rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.kpi-card p {
+  color: #999;
+  margin: 4px 0 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Tables */
+/* Tables */
+.table-container {
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f0f0f0;
+  padding: 20px;
+  overflow-x: auto;
+}
+
+.table-header-title {
+  padding: 12px 16px;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #f0f0f0;
+  margin: -20px -20px 20px -20px;
+  font-weight: 600;
+  color: #333;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background: white;
+  color: #555;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+th,
+td {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+/* UI Elements */
+.badge {
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.btn {
+  background: var(--secondary-color);
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.btn:hover {
+  background: var(--primary-color);
+}

@@ -17,6 +17,8 @@
     "@reduxjs/toolkit": "^2.11.2",
     "@tailwindcss/vite": "^4.2.0",
     "axios": "^1.13.5",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2",
     "lucide-react": "^0.575.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

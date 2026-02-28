@@ -18,6 +18,14 @@ body {
   color: var(--text-dark);
 }
 
+button, 
+a, 
+select, 
+[role="button"],
+.clickable {
+  cursor: pointer !important;
+}
+
 /* Sidebar Styling from Template */
 .sidebar {
   width: var(--sidebar-width);

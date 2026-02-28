@@ -53,23 +53,25 @@ const getDashboardSummary = async (req, res) => {
         const hkResult = await pool.request()
             .input('lodgeId', sql.Int, lodgeId)
             .query(`
-                SELECT TOP 5 h.TaskId, r.RoomNumber, h.Status, e.FirstName + ' ' + ISNULL(e.LastName, '') as EmployeeName
+                SELECT h.TaskId, r.RoomNumber, h.Status, CONCAT(e.FirstName, ' ', IFNULL(e.LastName, '')) as EmployeeName
                 FROM HousekeepingTasks h
                 JOIN Rooms r ON h.RoomId = r.RoomId
                 JOIN Employees e ON h.AssignedTo = e.EmployeeId
-                WHERE h.LodgeId = @lodgeId AND h.TaskDate = CAST(GETDATE() AS DATE)
+                WHERE h.LodgeId = @lodgeId AND h.TaskDate = CAST(NOW() AS DATE)
                 ORDER BY h.CreatedAt DESC
+                LIMIT 5
             `);
 
         // Fetch Recent Inventory Transactions
         const invResult = await pool.request()
             .input('lodgeId', sql.Int, lodgeId)
             .query(`
-                SELECT TOP 5 t.TransactionId, i.ItemName, t.TransactionType, t.Quantity, t.TransactionDate
+                SELECT t.TransactionId, i.ItemName, t.TransactionType, t.Quantity, t.TransactionDate
                 FROM InventoryTransactions t
                 JOIN InventoryItems i ON t.InventoryItemId = i.InventoryItemId
                 WHERE i.LodgeId = @lodgeId
                 ORDER BY t.TransactionDate DESC
+                LIMIT 5
             `);
 
         res.json({

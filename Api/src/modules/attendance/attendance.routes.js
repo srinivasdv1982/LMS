@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAttendanceByDate, saveBatchAttendance } = require('./attendance.controller');
+const { getAttendanceByDate, saveBatchAttendance, getMonthlyAttendance } = require('./attendance.controller');
 const { verifyToken } = require('../../../middleware/auth');
 
 /**
@@ -24,5 +24,16 @@ router.get('/', verifyToken, getAttendanceByDate);
  *       - bearerAuth: []
  */
 router.post('/batch', verifyToken, saveBatchAttendance);
+
+/**
+ * @swagger
+ * /attendance/monthly:
+ *   get:
+ *     summary: Get monthly attendance matrix
+ *     tags: [Attendance]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/monthly', verifyToken, getMonthlyAttendance);
 
 module.exports = router;

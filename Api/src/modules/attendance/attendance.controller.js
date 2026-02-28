@@ -55,23 +55,26 @@ const saveBatchAttendance = async (req, res) => {
         const pool = await poolPromise;
 
         for (const record of attendances) {
-            await pool.request()
-                .input('lodgeId', sql.Int, lodgeId)
+            // Check if exists
+            const check = await pool.request()
                 .input('employeeId', sql.Int, record.employeeId)
                 .input('date', sql.Date, date)
-                .input('status', sql.NVarChar, record.status)
-                .query(`
-                    IF EXISTS (SELECT 1 FROM EmployeeAttendance WHERE EmployeeId = @employeeId AND AttendanceDate = @date)
-                    BEGIN
-                        UPDATE EmployeeAttendance SET Status = @status 
-                        WHERE EmployeeId = @employeeId AND AttendanceDate = @date
-                    END
-                    ELSE
-                    BEGIN
-                        INSERT INTO EmployeeAttendance (LodgeId, EmployeeId, AttendanceDate, Status)
-                        VALUES (@lodgeId, @employeeId, @date, @status)
-                    END
-                `);
+                .query('SELECT AttendanceId FROM EmployeeAttendance WHERE EmployeeId = @employeeId AND AttendanceDate = @date');
+
+            if (check.recordset.length > 0) {
+                await pool.request()
+                    .input('employeeId', sql.Int, record.employeeId)
+                    .input('date', sql.Date, date)
+                    .input('status', sql.NVarChar, record.status)
+                    .query('UPDATE EmployeeAttendance SET Status = @status WHERE EmployeeId = @employeeId AND AttendanceDate = @date');
+            } else {
+                await pool.request()
+                    .input('lodgeId', sql.Int, lodgeId)
+                    .input('employeeId', sql.Int, record.employeeId)
+                    .input('date', sql.Date, date)
+                    .input('status', sql.NVarChar, record.status)
+                    .query('INSERT INTO EmployeeAttendance (LodgeId, EmployeeId, AttendanceDate, Status) VALUES (@lodgeId, @employeeId, @date, @status)');
+            }
         }
 
         res.json({ message: 'Attendance saved successfully' });
@@ -81,7 +84,58 @@ const saveBatchAttendance = async (req, res) => {
     }
 };
 
+/**
+ * Get monthly attendance for all employees of a lodge
+ */
+const getMonthlyAttendance = async (req, res) => {
+    const { month, year } = req.query; // Expecting month (1-12) and year (e.g., 2024)
+    const { lodgeId } = req.user;
+
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('lodgeId', sql.Int, lodgeId)
+            .input('month', sql.Int, month)
+            .input('year', sql.Int, year)
+            .query(`
+                SELECT e.EmployeeId, e.FirstName, e.LastName, r.RoleName,
+                       a.AttendanceDate, a.Status
+                FROM Employees e
+                JOIN Roles r ON e.RoleId = r.RoleId
+                LEFT JOIN EmployeeAttendance a ON e.EmployeeId = a.EmployeeId 
+                    AND MONTH(a.AttendanceDate) = @month 
+                    AND YEAR(a.AttendanceDate) = @year
+                WHERE e.LodgeId = @lodgeId AND e.IsActive = 1
+                ORDER BY e.EmployeeId, a.AttendanceDate
+            `);
+
+        // Group by employee
+        const employeesMap = {};
+        result.recordset.forEach(row => {
+            if (!employeesMap[row.EmployeeId]) {
+                employeesMap[row.EmployeeId] = {
+                    EmployeeId: row.EmployeeId,
+                    FirstName: row.FirstName,
+                    LastName: row.LastName,
+                    RoleName: row.RoleName,
+                    attendance: {}
+                };
+            }
+            if (row.AttendanceDate) {
+                const day = new Date(row.AttendanceDate).getDate();
+                employeesMap[row.EmployeeId].attendance[day] = row.Status;
+            }
+        });
+
+        res.json(Object.values(employeesMap));
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+};
+
 module.exports = {
     getAttendanceByDate,
-    saveBatchAttendance
+    saveBatchAttendance,
+    getMonthlyAttendance
 };

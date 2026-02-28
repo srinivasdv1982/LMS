@@ -13,7 +13,7 @@ const getHousekeepingTasks = async (req, res) => {
             .input('lodgeId', sql.Int, req.user.lodgeId)
             .input('taskDate', sql.Date, dateFilter)
             .query(`
-                SELECT h.TaskId, h.RoomId, r.RoomNumber, h.AssignedTo, e.FirstName + ' ' + ISNULL(e.LastName, '') as EmployeeName, h.Status, h.TaskDate as CreatedAt
+                SELECT h.TaskId, h.RoomId, r.RoomNumber, h.AssignedTo, CONCAT(e.FirstName, ' ', IFNULL(e.LastName, '')) as EmployeeName, h.Status, h.TaskDate as CreatedAt
                 FROM HousekeepingTasks h
                 JOIN Rooms r ON h.RoomId = r.RoomId
                 JOIN Employees e ON h.AssignedTo = e.EmployeeId

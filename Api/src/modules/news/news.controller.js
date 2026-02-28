@@ -11,7 +11,7 @@ const getNews = async (req, res) => {
             .input('lodgeId', sql.Int, lodgeId)
             .query(`
                 SELECT n.NewsId, n.Title, n.Content, n.ImageUrl, n.CreatedAt, 
-                       e.FirstName + ' ' + ISNULL(e.LastName, '') as CreatedByName
+                       CONCAT(e.FirstName, ' ', IFNULL(e.LastName, '')) as CreatedByName
                 FROM News n
                 JOIN Employees e ON n.CreatedBy = e.EmployeeId
                 WHERE n.LodgeId = @lodgeId

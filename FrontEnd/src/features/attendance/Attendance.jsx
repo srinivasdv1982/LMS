@@ -7,6 +7,9 @@ const Attendance = () => {
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [viewMode, setViewMode] = useState('daily');
+    const [month, setMonth] = useState(new Date().getMonth() + 1);
+    const [year, setYear] = useState(new Date().getFullYear());
     const [saving, setSaving] = useState(false);
 
     const selectedDate = new Date(date);
@@ -14,19 +17,27 @@ const Attendance = () => {
     const diffDays = (now.getTime() - selectedDate.getTime()) / (1000 * 3600 * 24);
     const isPastLimit = diffDays > 15;
 
-    // Reset time to start of day for accurate future comparison
     const selectedDateOnly = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
     const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const isFuture = selectedDateOnly > todayOnly;
 
     const isEditDisabled = isPastLimit || isFuture;
 
+    const daysInMonth = (y, m) => new Date(y, m, 0).getDate();
+    const numDays = daysInMonth(year, month);
+    const daysArray = Array.from({ length: numDays }, (_, i) => i + 1);
+
     useEffect(() => {
         const fetchAttendance = async () => {
             setLoading(true);
             try {
-                const response = await api.get(`/attendance?date=${date}`);
-                setEmployees(response.data);
+                if (viewMode === 'daily') {
+                    const response = await api.get(`/attendance?date=${date}`);
+                    setEmployees(response.data);
+                } else {
+                    const response = await api.get(`/attendance/monthly?month=${month}&year=${year}`);
+                    setEmployees(response.data);
+                }
             } catch (err) {
                 console.error('Error:', err);
             } finally {
@@ -34,7 +45,7 @@ const Attendance = () => {
             }
         };
         fetchAttendance();
-    }, [date]);
+    }, [date, viewMode, month, year]);
 
     const handleStatusChange = (employeeId, status) => {
         setEmployees(employees.map(emp =>
@@ -101,45 +112,147 @@ const Attendance = () => {
         }
     ];
 
+    const getStatusIcon = (status) => {
+        if (status === 'Present') return <span className="text-green-600 font-bold">P</span>;
+        if (status === 'Absent') return <span className="text-red-600 font-bold">A</span>;
+        if (status === 'Leave') return <span className="text-yellow-600 font-bold">L</span>;
+        if (status === 'HalfDay') return <span className="text-orange-600 font-bold">H</span>;
+        return <span className="text-slate-300">-</span>;
+    };
+
+    const months = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+
     return (
         <div>
             <div className="topbar">
-                <h3>Employee Attendance</h3>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm font-semibold text-slate-600">Date:</label>
-                        <input
-                            type="date"
-                            max={new Date().toISOString().split('T')[0]}
-                            className="bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded px-3 py-1.5 focus:outline-none focus:border-blue-500"
-                            value={date}
-                            onChange={(e) => setDate(e.target.value)}
-                        />
+                <div className="flex flex-col gap-1">
+                    <h3>Employee Attendance</h3>
+                    <div className="flex bg-slate-100 p-1 rounded-lg w-fit">
+                        <button
+                            onClick={() => setViewMode('daily')}
+                            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${viewMode === 'daily' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            Daily View
+                        </button>
+                        <button
+                            onClick={() => setViewMode('monthly')}
+                            className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all ${viewMode === 'monthly' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            Monthly View
+                        </button>
                     </div>
-                    {isPastLimit && (
-                        <span className="text-red-500 font-medium text-sm">Cannot edit records older than 15 days.</span>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    {viewMode === 'daily' ? (
+                        <>
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm font-semibold text-slate-600">Date:</label>
+                                <input
+                                    type="date"
+                                    max={new Date().toISOString().split('T')[0]}
+                                    className="bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded px-3 py-1.5 focus:outline-none focus:border-blue-500"
+                                    value={date}
+                                    onChange={(e) => setDate(e.target.value)}
+                                />
+                            </div>
+                            {isPastLimit && (
+                                <span className="text-red-500 font-medium text-sm">Cannot edit records older than 15 days.</span>
+                            )}
+                            {isFuture && (
+                                <span className="text-red-500 font-medium text-sm">Cannot mark attendance for future dates.</span>
+                            )}
+                            <button
+                                onClick={() => setEmployees(employees.map(e => ({ ...e, Status: 'Present' })))}
+                                disabled={isEditDisabled}
+                                className="px-4 py-1.5 text-sm font-semibold rounded border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors bg-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Mark All Present
+                            </button>
+                            <button
+                                onClick={saveAttendance}
+                                className="px-4 py-1.5 text-sm font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={saving || isEditDisabled}
+                            >
+                                {saving ? 'Saving...' : 'Save Attendance'}
+                            </button>
+                        </>
+                    ) : (
+                        <div className="flex items-center gap-3">
+                            <select
+                                value={month}
+                                onChange={(e) => setMonth(parseInt(e.target.value))}
+                                className="bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded px-3 py-1.5 focus:outline-none focus:border-blue-500"
+                            >
+                                {months.map((m, i) => (
+                                    <option key={m} value={i + 1}>{m}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={year}
+                                onChange={(e) => setYear(parseInt(e.target.value))}
+                                className="bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded px-3 py-1.5 focus:outline-none focus:border-blue-500"
+                            >
+                                {[2024, 2025, 2026].map(y => (
+                                    <option key={y} value={y}>{y}</option>
+                                ))}
+                            </select>
+                        </div>
                     )}
-                    {isFuture && (
-                        <span className="text-red-500 font-medium text-sm">Cannot mark attendance for future dates.</span>
-                    )}
-                    <button
-                        onClick={() => setEmployees(employees.map(e => ({ ...e, Status: 'Present' })))}
-                        disabled={isEditDisabled}
-                        className="px-4 py-1.5 text-sm font-semibold rounded border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors bg-white shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Mark All Present
-                    </button>
-                    <button
-                        onClick={saveAttendance}
-                        className="px-4 py-1.5 text-sm font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled={saving || isEditDisabled}
-                    >
-                        {saving ? 'Saving...' : 'Save Attendance'}
-                    </button>
                 </div>
             </div>
-            <div className="table-container pt-0 mt-4">
-                <DataTable columns={columns} data={employees} loading={loading} />
+
+            <div className="table-container pt-0 mt-4 overflow-hidden">
+                {viewMode === 'daily' ? (
+                    <DataTable columns={columns} data={employees} loading={loading} />
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50 border-b border-slate-200">
+                                    <th className="p-3 font-semibold text-slate-700 sticky left-0 bg-slate-50 z-10 border-r border-slate-200 min-w-[150px]">Employee</th>
+                                    {daysArray.map(d => (
+                                        <th key={d} className="p-2 text-center font-medium text-slate-500 border-r border-slate-100 min-w-[32px]">{d}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan={numDays + 1} className="p-8 text-center text-slate-400">Loading monthly data...</td>
+                                    </tr>
+                                ) : employees.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={numDays + 1} className="p-8 text-center text-slate-400">No employees found.</td>
+                                    </tr>
+                                ) : (
+                                    employees.map(emp => (
+                                        <tr key={emp.EmployeeId} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                                            <td className="p-3 sticky left-0 bg-white z-10 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                                <div className="font-medium text-slate-800">{emp.FirstName} {emp.LastName}</div>
+                                                <div className="text-[10px] text-slate-500 uppercase tracking-tight">{emp.RoleName}</div>
+                                            </td>
+                                            {daysArray.map(d => (
+                                                <td key={d} className="p-2 text-center border-r border-slate-50">
+                                                    {getStatusIcon(emp.attendance?.[d])}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                        <div className="flex gap-4 p-3 mt-2 text-[11px] text-slate-500 border-t border-slate-100">
+                            <div className="flex items-center gap-1"><span className="text-green-600 font-bold">P</span> Present</div>
+                            <div className="flex items-center gap-1"><span className="text-red-600 font-bold">A</span> Absent</div>
+                            <div className="flex items-center gap-1"><span className="text-yellow-600 font-bold">L</span> Leave</div>
+                            <div className="flex items-center gap-1"><span className="text-orange-600 font-bold">H</span> Half Day</div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

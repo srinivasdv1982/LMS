@@ -29,7 +29,7 @@ const getVendors = async (req, res) => {
 };
 
 const addTransaction = async (req, res) => {
-    const { inventoryItemId, transactionType, quantity, unitPrice, vendorId } = req.body;
+    const { inventoryItemId, transactionType, quantity, unitPrice, vendorId, remarks } = req.body;
     const { lodgeId, userId } = req.user;
 
     if (!['PURCHASE', 'ISSUE', 'DAMAGE', 'ADJUSTMENT'].includes(transactionType)) {
@@ -84,10 +84,11 @@ const addTransaction = async (req, res) => {
                 .input('type', sql.NVarChar, transactionType)
                 .input('quantity', sql.Int, quantity)
                 .input('unitPrice', sql.Decimal, unitPrice || 0)
+                .input('remarks', sql.NVarChar, remarks || null)
                 .input('createdBy', sql.Int, userId || 1) // Provide default fallback if userId isn't in token yet
                 .query(`
-                    INSERT INTO InventoryTransactions (LodgeId, InventoryItemId, VendorId, TransactionType, Quantity, UnitPrice, TransactionDate, CreatedBy)
-                    VALUES (@lodgeId, @itemId, @vendorId, @type, @quantity, @unitPrice, GETDATE(), @createdBy)
+                    INSERT INTO InventoryTransactions (LodgeId, InventoryItemId, VendorId, TransactionType, Quantity, UnitPrice, Remarks, TransactionDate, CreatedBy)
+                    VALUES (@lodgeId, @itemId, @vendorId, @type, @quantity, @unitPrice, @remarks, GETDATE(), @createdBy)
                 `);
 
             await transaction.commit();
@@ -177,4 +178,38 @@ const updateItem = async (req, res) => {
     }
 };
 
-module.exports = { getInventory, addTransaction, createItem, updateItem, getVendors };
+const getTransactions = async (req, res) => {
+    const { lodgeId } = req.user;
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request()
+            .input('lodgeId', sql.Int, lodgeId)
+            .query(`
+                SELECT 
+                    t.TransactionId,
+                    t.TransactionType,
+                    t.Quantity,
+                    t.UnitPrice,
+                    t.Remarks,
+                    t.TransactionDate,
+                    i.ItemCode,
+                    i.ItemName,
+                    i.Category,
+                    v.VendorName,
+                    CONCAT(e.FirstName, ' ', IFNULL(e.LastName, '')) as CreatedByName
+                FROM InventoryTransactions t
+                JOIN InventoryItems i ON t.InventoryItemId = i.InventoryItemId
+                LEFT JOIN Vendors v ON t.VendorId = v.VendorId
+                LEFT JOIN Users u ON t.CreatedBy = u.UserId
+                LEFT JOIN Employees e ON u.EmployeeId = e.EmployeeId
+                WHERE t.LodgeId = @lodgeId
+                ORDER BY t.TransactionDate DESC
+            `);
+        res.json(result.recordset);
+    } catch (err) {
+        console.error('Error fetching transactions:', err);
+        res.status(500).json({ message: err.message });
+    }
+};
+
+module.exports = { getInventory, addTransaction, createItem, updateItem, getVendors, getTransactions };

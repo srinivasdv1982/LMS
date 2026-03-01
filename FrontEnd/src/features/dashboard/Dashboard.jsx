@@ -13,7 +13,8 @@ const Dashboard = () => {
             LowStockCount: 0
         },
         recentHousekeeping: [],
-        recentInventory: []
+        recentInventory: [],
+        lowStockItems: []
     });
     const [loading, setLoading] = useState(true);
 
@@ -87,7 +88,7 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
                 <div className="card">
                     <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-100">
                         <h2 className="text-lg font-bold text-slate-800">Today's Housekeeping</h2>
@@ -138,6 +139,47 @@ const Dashboard = () => {
                                         <span className={`text-sm font-bold ${['PURCHASE', 'ADJUSTMENT'].includes(tx.TransactionType) ? 'text-green-600' : 'text-red-600'}`}>
                                             {['PURCHASE', 'ADJUSTMENT'].includes(tx.TransactionType) ? '+' : '-'}{tx.Quantity}
                                         </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="card border-l-4 border-rose-500 shadow-md">
+                    <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-100">
+                        <div className="flex items-center gap-2">
+                            <h2 className="text-lg font-bold text-slate-800">Critical Stock Alerts</h2>
+                            <span className="flex h-3 w-3 relative">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                            </span>
+                        </div>
+                        <Link to="/inventory" className="text-sm font-semibold text-rose-600 hover:text-rose-800 px-2 py-1 rounded hover:bg-rose-50 transition-colors">Review</Link>
+                    </div>
+                    {loading ? (
+                        <p className="text-slate-500 text-sm">Loading alerts...</p>
+                    ) : dashboardData.lowStockItems.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-4">
+                            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-2">
+                                <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                            <p className="text-slate-600 font-medium text-sm">Stock levels are healthy</p>
+                            <p className="text-slate-400 text-xs">No critical shortages</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {dashboardData.lowStockItems.map(item => (
+                                <div key={item.ItemCode} className="flex justify-between items-center p-3 bg-rose-50/50 rounded border border-rose-100 hover:bg-rose-50 transition-colors">
+                                    <div>
+                                        <p className="font-semibold text-slate-800 text-sm">{item.ItemName}</p>
+                                        <p className="text-xs text-slate-500">Code: <span className="font-mono">{item.ItemCode}</span></p>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-sm font-bold text-rose-600" title="Current Stock / Reorder Level">
+                                            {item.CurrentStock} / {item.ReorderLevel}
+                                        </span>
+                                        <p className="text-[10px] text-rose-500 font-semibold uppercase">{item.UnitOfMeasure}</p>
                                     </div>
                                 </div>
                             ))}

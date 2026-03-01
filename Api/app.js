@@ -12,6 +12,7 @@ const reportRoutes = require('./src/modules/reports/reports.routes');
 const attendanceRoutes = require('./src/modules/attendance/attendance.routes');
 const newsRoutes = require('./src/modules/news/news.routes');
 const adsRoutes = require('./src/modules/ads/ads.routes');
+const usersRoutes = require('./src/modules/users/users.routes');
 
 const swaggerJsDoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
@@ -64,6 +65,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/ads', adsRoutes);
+app.use('/api/users', usersRoutes);
 
 // Centralized Error Handling Middleware
 app.use((err, req, res, next) => {

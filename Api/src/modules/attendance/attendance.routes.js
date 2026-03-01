@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAttendanceByDate, saveBatchAttendance, getMonthlyAttendance } = require('./attendance.controller');
+const { getAttendanceByDate, saveBatchAttendance, getMonthlyAttendance, updateSingleAttendance, bulkMarkPresent } = require('./attendance.controller');
 const { verifyToken } = require('../../../middleware/auth');
 
 /**
@@ -35,5 +35,27 @@ router.post('/batch', verifyToken, saveBatchAttendance);
  *       - bearerAuth: []
  */
 router.get('/monthly', verifyToken, getMonthlyAttendance);
+
+/**
+ * @swagger
+ * /attendance/update:
+ *   post:
+ *     summary: Update a single employee's attendance record
+ *     tags: [Attendance]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/update', verifyToken, updateSingleAttendance);
+
+/**
+ * @swagger
+ * /attendance/bulk-present:
+ *   post:
+ *     summary: Bulk mark present for missing attendance in a month
+ *     tags: [Attendance]
+ *     security:
+ *       - bearerAuth: []
+ */
+router.post('/bulk-present', verifyToken, bulkMarkPresent);
 
 module.exports = router;

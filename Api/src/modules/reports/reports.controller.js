@@ -74,10 +74,22 @@ const getDashboardSummary = async (req, res) => {
                 LIMIT 5
             `);
 
+        // Fetch Low Stock Items
+        const lowStockResult = await pool.request()
+            .input('lodgeId', sql.Int, lodgeId)
+            .query(`
+                SELECT ItemCode, ItemName, CurrentStock, ReorderLevel, UnitOfMeasure
+                FROM InventoryItems
+                WHERE LodgeId = @lodgeId AND CurrentStock <= ReorderLevel
+                ORDER BY CurrentStock ASC
+                LIMIT 5
+            `);
+
         res.json({
             kpis: kpiResult.recordset[0],
             recentHousekeeping: hkResult.recordset,
-            recentInventory: invResult.recordset
+            recentInventory: invResult.recordset,
+            lowStockItems: lowStockResult.recordset
         });
 
     } catch (err) {

@@ -16,7 +16,7 @@ const login = async (req, res) => {
         const result = await pool.request()
             .input('username', sql.NVarChar, username)
             .query(`
-        SELECT u.UserId, u.PasswordHash, u.LodgeId, l.LodgeName, e.FirstName, r.RoleName
+        SELECT u.UserId, u.PasswordHash, u.LodgeId, l.LodgeName, e.FirstName, e.EmployeeCode, r.RoleName
         FROM Users u
         JOIN Employees e ON u.EmployeeId = e.EmployeeId
         JOIN Roles r ON e.RoleId = r.RoleId
@@ -40,6 +40,7 @@ const login = async (req, res) => {
             lodgeId: user.LodgeId,
             lodgeName: user.LodgeName,
             name: user.FirstName,
+            employeeCode: user.EmployeeCode,
             role: user.RoleName
         };
 
@@ -54,6 +55,7 @@ const login = async (req, res) => {
                     user: {
                         id: user.UserId,
                         name: user.FirstName,
+                        employeeCode: user.EmployeeCode,
                         role: user.RoleName,
                         lodgeId: user.LodgeId,
                         lodgeName: user.LodgeName

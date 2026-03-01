@@ -7,6 +7,8 @@ import toast from 'react-hot-toast';
 const Inventory = () => {
     const [inventory, setInventory] = useState([]);
     const [vendors, setVendors] = useState([]);
+    const [transactions, setTransactions] = useState([]);
+    const [activeTab, setActiveTab] = useState('stock'); // 'stock' or 'history'
     const [loading, setLoading] = useState(true);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -15,7 +17,8 @@ const Inventory = () => {
         transactionType: 'PURCHASE',
         quantity: '',
         unitPrice: '',
-        vendorId: ''
+        vendorId: '',
+        remarks: ''
     });
 
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
@@ -49,9 +52,19 @@ const Inventory = () => {
         }
     };
 
+    const fetchTransactions = async () => {
+        try {
+            const response = await api.get('/inventory/transactions');
+            setTransactions(response.data);
+        } catch (err) {
+            console.error('Error fetching transactions:', err);
+        }
+    };
+
     useEffect(() => {
         fetchInventory();
         fetchVendors();
+        fetchTransactions();
     }, []);
 
     const handleInputChange = (e) => {
@@ -113,9 +126,10 @@ const Inventory = () => {
             toast.success('Transaction recorded successfully!');
             setIsModalOpen(false);
             setFormData({
-                inventoryItemId: '', transactionType: 'PURCHASE', quantity: '', unitPrice: '', vendorId: ''
+                inventoryItemId: '', transactionType: 'PURCHASE', quantity: '', unitPrice: '', vendorId: '', remarks: ''
             });
             fetchInventory(); // Refresh the grid
+            fetchTransactions(); // Refresh the history
         } catch (err) {
             console.error(err);
             toast.error(err.response?.data?.message || 'Failed to record transaction. Please check inputs.');
@@ -156,29 +170,104 @@ const Inventory = () => {
         }
     ];
 
+    const transactionColumns = [
+        { key: 'TransactionDate', label: 'Date', render: (val) => new Date(val).toLocaleString() },
+        { key: 'ItemName', label: 'Item Name' },
+        {
+            key: 'TransactionType', label: 'Type', render: (val) => (
+                <span className={`px-2 py-1 rounded text-xs font-bold ${['PURCHASE', 'ADJUSTMENT'].includes(val) ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{val}</span>
+            )
+        },
+        {
+            key: 'Quantity', label: 'Qty', render: (val, row) => (
+                <span className={`font-bold font-mono ${['PURCHASE', 'ADJUSTMENT'].includes(row.TransactionType) ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {['PURCHASE', 'ADJUSTMENT'].includes(row.TransactionType) ? '+' : '-'}{val}
+                </span>
+            )
+        },
+        { key: 'Remarks', label: 'Destination / Remarks', render: (val) => val || '-' },
+        { key: 'CreatedByName', label: 'Performed By' }
+    ];
+
+    // KPIs
+    const totalItems = inventory.length;
+    const lowStockItems = inventory.filter(i => i.CurrentStock <= i.ReorderLevel).length;
+
     return (
         <>
             <div>
-                <div className="topbar">
-                    <h3>Inventory Management</h3>
+                <div className="topbar mb-6 border-none shadow-none pb-0">
+                    <h3 className="text-2xl font-bold text-slate-800">Inventory Management</h3>
                     <div className="flex gap-3">
                         <button
                             onClick={handleOpenAddItemModal}
-                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium transition-colors shadow-sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded font-medium transition-colors shadow-sm"
                         >
-                            + Add Item
+                            + Add Item Catalog
                         </button>
                         <button
                             onClick={() => setIsModalOpen(true)}
                             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium transition-colors shadow-sm"
                         >
-                            + Add Transaction
+                            + Issue/Purchase Stock
                         </button>
                     </div>
                 </div>
 
-                <div className="table-container pt-0 mt-4 relative">
-                    <DataTable columns={columns} data={inventory} loading={loading} />
+                {/* KPI Bar */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div className="bg-white rounded-lg p-5 shadow-sm border border-slate-200 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-blue-100 flex justify-center items-center text-blue-600 font-bold text-xl">
+                            {totalItems}
+                        </div>
+                        <div>
+                            <p className="text-sm text-slate-500 font-medium uppercase tracking-wide">Unique Items Tracked</p>
+                            <p className="text-2xl font-bold text-slate-800">{totalItems}</p>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-lg p-5 shadow-sm border border-slate-200 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-rose-100 flex justify-center items-center text-rose-600 font-bold text-xl">
+                            {lowStockItems}
+                        </div>
+                        <div>
+                            <p className="text-sm text-slate-500 font-medium uppercase tracking-wide">Low Stock Alerts</p>
+                            <p className="text-2xl font-bold text-rose-600">{lowStockItems} Items critically low</p>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-lg p-5 shadow-sm border border-slate-200 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-slate-100 flex justify-center items-center text-slate-600 font-bold text-xl">
+                            {transactions.length}
+                        </div>
+                        <div>
+                            <p className="text-sm text-slate-500 font-medium uppercase tracking-wide">Total Transactions</p>
+                            <p className="text-2xl font-bold text-slate-800">Ledger Entries</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-t-lg border-b border-slate-200 flex gap-6 px-6 pt-4">
+                    <button
+                        onClick={() => setActiveTab('stock')}
+                        className={`pb-3 font-semibold text-sm transition-colors relative ${activeTab === 'stock' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Current Stock
+                        {activeTab === 'stock' && <span className="absolute bottom-0 left-0 w-full h-[3px] bg-blue-600 rounded-t-lg"></span>}
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('history')}
+                        className={`pb-3 font-semibold text-sm transition-colors relative ${activeTab === 'history' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        Transaction History
+                        {activeTab === 'history' && <span className="absolute bottom-0 left-0 w-full h-[3px] bg-blue-600 rounded-t-lg"></span>}
+                    </button>
+                </div>
+
+                <div className="table-container pt-0 mt-0 rounded-t-none border-t-0 relative">
+                    {activeTab === 'stock' ? (
+                        <DataTable columns={columns} data={inventory} loading={loading} />
+                    ) : (
+                        <DataTable columns={transactionColumns} data={transactions} loading={loading} />
+                    )}
                 </div>
             </div>
             {/* Add Transaction Modal - Rendered outside the main flow to avoid z-index conflicts with DataGrid */}
@@ -224,7 +313,7 @@ const Inventory = () => {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Vendor</label>
-                                    <select name="vendorId" value={formData.vendorId} onChange={handleInputChange} className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow">
+                                    <select name="vendorId" value={formData.vendorId} onChange={handleInputChange} disabled={['ISSUE', 'DAMAGE'].includes(formData.transactionType)} className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow disabled:opacity-50">
                                         <option value="">No Vendor (Internal)</option>
                                         {vendors.map(vendor => (
                                             <option key={vendor.VendorId} value={vendor.VendorId}>
@@ -234,6 +323,13 @@ const Inventory = () => {
                                     </select>
                                 </div>
                             </div>
+
+                            {['ISSUE', 'DAMAGE'].includes(formData.transactionType) && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Remarks / Destination *</label>
+                                    <input required type="text" name="remarks" value={formData.remarks} onChange={handleInputChange} placeholder="e.g. Issued to Room 101, Cleaning cart 2" className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-slate-800 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
+                                </div>
+                            )}
 
                             <div className="flex justify-end gap-3 mt-6">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-slate-100 text-slate-600 rounded hover:bg-slate-200 transition-colors">

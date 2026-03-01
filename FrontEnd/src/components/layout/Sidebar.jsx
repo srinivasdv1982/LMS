@@ -11,16 +11,19 @@ const Sidebar = () => {
     const { user } = useSelector((state) => state.auth);
 
     const menuItems = [
-        { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'Rooms', path: '/rooms', icon: BedDouble },
-        { name: 'Inventory', path: '/inventory', icon: Package },
-        { name: 'Employees', path: '/employees', icon: Users },
-        { name: 'Housekeeping', path: '/housekeeping', icon: ClipboardCheck },
-        { name: 'Attendance', path: '/attendance', icon: Users },
-        { name: 'Reports', path: '/reports', icon: FileText },
-        { name: 'News', path: '/news', icon: Newspaper },
-        { name: 'Ads', path: '/ads', icon: Megaphone },
+        { name: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['Admin', 'Manager', 'Receptionist', 'Housekeeping', 'StoreKeeper'] },
+        { name: 'Rooms', path: '/rooms', icon: BedDouble, roles: ['Admin', 'Manager', 'Receptionist'] },
+        { name: 'Inventory', path: '/inventory', icon: Package, roles: ['Admin', 'Manager', 'StoreKeeper'] },
+        { name: 'Employees', path: '/employees', icon: Users, roles: ['Admin', 'Manager'] },
+        { name: 'Users', path: '/users', icon: Users, roles: ['Admin'] },
+        { name: 'Housekeeping', path: '/housekeeping', icon: ClipboardCheck, roles: ['Admin', 'Manager', 'Housekeeping'] },
+        { name: 'Attendance', path: '/attendance', icon: Users, roles: ['Admin', 'Manager', 'Receptionist'] },
+        { name: 'Reports', path: '/reports', icon: FileText, roles: ['Admin', 'Manager'] },
+        { name: 'News', path: '/news', icon: Newspaper, roles: ['Admin'] },
+        { name: 'Ads', path: '/ads', icon: Megaphone, roles: ['Admin'] },
     ];
+
+    const filteredMenuItems = menuItems.filter(item => item.roles.includes(user?.role));
 
     const handleLogout = () => {
         dispatch(logout());
@@ -31,7 +34,7 @@ const Sidebar = () => {
         <aside className="fixed left-0 top-16 bottom-0 w-[250px] bg-[#2f3d4a] border-r border-[#1e2936] flex flex-col z-40 overflow-y-auto shadow-md">
             <div className="py-4">
                 <nav className="flex flex-col space-y-0.5 mt-2">
-                    {menuItems.map((item) => {
+                    {filteredMenuItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = location.pathname === item.path;
                         return (

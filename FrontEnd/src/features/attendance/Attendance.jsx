@@ -11,21 +11,24 @@ const Attendance = () => {
     const [month, setMonth] = useState(new Date().getMonth() + 1);
     const [year, setYear] = useState(new Date().getFullYear());
     const [saving, setSaving] = useState(false);
+    const [updatingCell, setUpdatingCell] = useState(null);
 
     const selectedDate = new Date(date);
     const now = new Date();
+    const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const diffDays = (now.getTime() - selectedDate.getTime()) / (1000 * 3600 * 24);
     const isPastLimit = diffDays > 15;
-
-    const selectedDateOnly = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
-    const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const isFuture = selectedDateOnly > todayOnly;
-
-    const isEditDisabled = isPastLimit || isFuture;
+    const isEditDisabled = isPastLimit;
 
     const daysInMonth = (y, m) => new Date(y, m, 0).getDate();
     const numDays = daysInMonth(year, month);
     const daysArray = Array.from({ length: numDays }, (_, i) => i + 1);
+
+    const isWeekend = (d, m, y) => {
+        const date = new Date(y, m - 1, d);
+        const day = date.getDay();
+        return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+    };
 
     useEffect(() => {
         const fetchAttendance = async () => {
@@ -62,6 +65,69 @@ const Attendance = () => {
             toast.error(err.response?.data?.message || 'Failed to save attendance.');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleCellClick = async (employeeId, d, currentStatus) => {
+        const cellDate = new Date(year, month - 1, d);
+        const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const diffDays = (todayOnly.getTime() - cellDate.getTime()) / (1000 * 3600 * 24);
+
+        if (diffDays > 15) return;
+
+        const statusCycle = {
+            'Pending': 'Present',
+            'Present': 'Absent',
+            'Absent': 'Leave',
+            'Leave': 'Pending'
+        };
+
+        const nextStatus = statusCycle[currentStatus || 'Pending'];
+        setUpdatingCell(`${employeeId}-${d}`);
+
+        try {
+            setEmployees(employees.map(emp => {
+                if (emp.EmployeeId === employeeId) {
+                    return {
+                        ...emp,
+                        attendance: {
+                            ...emp.attendance,
+                            [d]: nextStatus === 'Pending' ? null : nextStatus
+                        }
+                    };
+                }
+                return emp;
+            }));
+
+            // Format date carefully handling local timezone
+            const formattedDate = new Date(cellDate.getTime() - (cellDate.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
+            await api.post('/attendance/update', {
+                employeeId,
+                date: formattedDate,
+                status: nextStatus === 'Pending' ? '' : nextStatus
+            });
+        } catch (err) {
+            console.error('Error updating attendance:', err);
+            toast.error('Failed to update attendance');
+        } finally {
+            setUpdatingCell(null);
+        }
+    };
+
+    const handleBulkPresent = async (employeeId) => {
+        try {
+            toast.loading('Marking present...', { id: 'bulk-present' });
+            await api.post('/attendance/bulk-present', { employeeId, month, year });
+
+            // Re-fetch the data to get updated statuses 
+            const response = await api.get(`/attendance/monthly?month=${month}&year=${year}`);
+            setEmployees(response.data);
+
+            toast.success('Successfully marked present!', { id: 'bulk-present' });
+        } catch (err) {
+            console.error('Error in bulk marking present:', err);
+            toast.error(err.response?.data?.message || 'Failed to bulk mark attendance', { id: 'bulk-present' });
         }
     };
 
@@ -116,7 +182,6 @@ const Attendance = () => {
         if (status === 'Present') return <span className="text-green-600 font-bold">P</span>;
         if (status === 'Absent') return <span className="text-red-600 font-bold">A</span>;
         if (status === 'Leave') return <span className="text-yellow-600 font-bold">L</span>;
-        if (status === 'HalfDay') return <span className="text-orange-600 font-bold">H</span>;
         return <span className="text-slate-300">-</span>;
     };
 
@@ -126,8 +191,8 @@ const Attendance = () => {
     ];
 
     return (
-        <div>
-            <div className="topbar">
+        <div className="flex flex-col h-[calc(100vh-112px)] min-h-0 bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+            <div className="topbar shrink-0">
                 <div className="flex flex-col gap-1">
                     <h3>Employee Attendance</h3>
                     <div className="flex bg-slate-100 p-1 rounded-lg w-fit">
@@ -161,9 +226,6 @@ const Attendance = () => {
                             </div>
                             {isPastLimit && (
                                 <span className="text-red-500 font-medium text-sm">Cannot edit records older than 15 days.</span>
-                            )}
-                            {isFuture && (
-                                <span className="text-red-500 font-medium text-sm">Cannot mark attendance for future dates.</span>
                             )}
                             <button
                                 onClick={() => setEmployees(employees.map(e => ({ ...e, Status: 'Present' })))}
@@ -205,18 +267,26 @@ const Attendance = () => {
                 </div>
             </div>
 
-            <div className="table-container pt-0 mt-4 overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative mt-4">
                 {viewMode === 'daily' ? (
-                    <DataTable columns={columns} data={employees} loading={loading} />
+                    <div className="flex-1 overflow-auto">
+                        <DataTable columns={columns} data={employees} loading={loading} />
+                    </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left border-collapse">
-                            <thead>
+                    <div className="flex-1 overflow-auto border border-slate-200 rounded">
+                        <table className="w-full text-sm text-left border-collapse min-w-max">
+                            <thead className="sticky top-0 z-20">
                                 <tr className="bg-slate-50 border-b border-slate-200">
-                                    <th className="p-3 font-semibold text-slate-700 sticky left-0 bg-slate-50 z-10 border-r border-slate-200 min-w-[150px]">Employee</th>
-                                    {daysArray.map(d => (
-                                        <th key={d} className="p-2 text-center font-medium text-slate-500 border-r border-slate-100 min-w-[32px]">{d}</th>
-                                    ))}
+                                    <th className="p-3 font-semibold text-slate-700 sticky left-0 bg-slate-50 z-30 border-r border-slate-200 min-w-[150px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Employee</th>
+                                    {daysArray.map(d => {
+                                        const weekend = isWeekend(d, month, year);
+                                        return (
+                                            <th key={d} className={`p-2 text-center font-medium border-r border-slate-200 min-w-[32px] ${weekend ? 'bg-orange-100 text-orange-800' : 'text-slate-500'}`}>
+                                                {d}
+                                                {weekend && <div className="text-[9px] font-bold uppercase mt-0.5 tracking-tighter">{new Date(year, month - 1, d).getDay() === 0 ? 'Sun' : 'Sat'}</div>}
+                                            </th>
+                                        );
+                                    })}
                                 </tr>
                             </thead>
                             <tbody>
@@ -233,24 +303,53 @@ const Attendance = () => {
                                         <tr key={emp.EmployeeId} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                             <td className="p-3 sticky left-0 bg-white z-10 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                                                 <div className="font-medium text-slate-800">{emp.FirstName} {emp.LastName}</div>
-                                                <div className="text-[10px] text-slate-500 uppercase tracking-tight">{emp.RoleName}</div>
+                                                <div className="text-[10px] text-slate-500 uppercase tracking-tight mb-2">{emp.RoleName}</div>
+                                                <button
+                                                    onClick={() => handleBulkPresent(emp.EmployeeId)}
+                                                    className="px-2 py-1 text-[10px] font-semibold rounded bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white transition-colors"
+                                                    title="Mark all empty weekdays up to today as Present"
+                                                >
+                                                    P Quick Fill
+                                                </button>
                                             </td>
-                                            {daysArray.map(d => (
-                                                <td key={d} className="p-2 text-center border-r border-slate-50">
-                                                    {getStatusIcon(emp.attendance?.[d])}
-                                                </td>
-                                            ))}
+                                            {daysArray.map(d => {
+                                                const weekend = isWeekend(d, month, year);
+                                                const cellDate = new Date(year, month - 1, d);
+                                                const isOldCell = (todayOnly.getTime() - cellDate.getTime()) / (1000 * 3600 * 24) > 15;
+                                                const isCellDisabled = isOldCell;
+                                                const isUpdating = updatingCell === `${emp.EmployeeId}-${d}`;
+
+                                                return (
+                                                    <td
+                                                        key={d}
+                                                        onClick={() => {
+                                                            if (!isCellDisabled && !isUpdating) {
+                                                                handleCellClick(emp.EmployeeId, d, emp.attendance?.[d]);
+                                                            }
+                                                        }}
+                                                        className={`p-2 text-center border-r border-slate-100 transition-colors 
+                                                            ${weekend ? 'bg-orange-50/50' : ''} 
+                                                            ${!isCellDisabled ? 'cursor-pointer hover:bg-blue-50' : 'opacity-50 cursor-not-allowed'}
+                                                        `}
+                                                        title={isCellDisabled ? "Cannot edit locked past dates" : "Click to toggle attendance"}
+                                                    >
+                                                        {isUpdating ? <span className="animate-pulse text-xs text-blue-600 font-bold">...</span> : getStatusIcon(emp.attendance?.[d])}
+                                                    </td>
+                                                );
+                                            })}
                                         </tr>
                                     ))
                                 )}
                             </tbody>
                         </table>
-                        <div className="flex gap-4 p-3 mt-2 text-[11px] text-slate-500 border-t border-slate-100">
-                            <div className="flex items-center gap-1"><span className="text-green-600 font-bold">P</span> Present</div>
-                            <div className="flex items-center gap-1"><span className="text-red-600 font-bold">A</span> Absent</div>
-                            <div className="flex items-center gap-1"><span className="text-yellow-600 font-bold">L</span> Leave</div>
-                            <div className="flex items-center gap-1"><span className="text-orange-600 font-bold">H</span> Half Day</div>
-                        </div>
+                    </div>
+                )}
+
+                {viewMode === 'monthly' && (
+                    <div className="flex gap-4 p-3 mt-2 text-[11px] text-slate-500 border-t border-slate-100 bg-white">
+                        <div className="flex items-center gap-1"><span className="text-green-600 font-bold">P</span> Present</div>
+                        <div className="flex items-center gap-1"><span className="text-red-600 font-bold">A</span> Absent</div>
+                        <div className="flex items-center gap-1"><span className="text-yellow-600 font-bold">L</span> Leave</div>
                     </div>
                 )}
             </div>

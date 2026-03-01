@@ -5,15 +5,16 @@ import { logout } from '../../features/auth/authSlice';
 import { Search, LayoutDashboard, BedDouble, Package, Users, ClipboardCheck, FileText, Newspaper, Megaphone } from 'lucide-react';
 
 const ALL_PAGES = [
-    { name: 'Dashboard', path: '/', icon: LayoutDashboard, keywords: 'home overview kpi' },
-    { name: 'Rooms', path: '/rooms', icon: BedDouble, keywords: 'room booking availability' },
-    { name: 'Inventory', path: '/inventory', icon: Package, keywords: 'stock items transactions' },
-    { name: 'Employees', path: '/employees', icon: Users, keywords: 'staff workers' },
-    { name: 'Housekeeping', path: '/housekeeping', icon: ClipboardCheck, keywords: 'cleaning tasks rooms' },
-    { name: 'Attendance', path: '/attendance', icon: Users, keywords: 'present absent leave mark' },
-    { name: 'Reports', path: '/reports', icon: FileText, keywords: 'analytics summary lodge' },
-    { name: 'News', path: '/news', icon: Newspaper, keywords: 'announcements updates' },
-    { name: 'Ads', path: '/ads', icon: Megaphone, keywords: 'advertisements promotions' },
+    { name: 'Dashboard', path: '/', icon: LayoutDashboard, keywords: 'home overview kpi', roles: ['Admin', 'Manager', 'Receptionist', 'Housekeeping', 'StoreKeeper'] },
+    { name: 'Rooms', path: '/rooms', icon: BedDouble, keywords: 'room booking availability', roles: ['Admin', 'Manager', 'Receptionist'] },
+    { name: 'Inventory', path: '/inventory', icon: Package, keywords: 'stock items transactions', roles: ['Admin', 'Manager', 'StoreKeeper'] },
+    { name: 'Employees', path: '/employees', icon: Users, keywords: 'staff workers', roles: ['Admin', 'Manager'] },
+    { name: 'Users', path: '/users', icon: Users, keywords: 'login mapping accounts', roles: ['Admin'] },
+    { name: 'Housekeeping', path: '/housekeeping', icon: ClipboardCheck, keywords: 'cleaning tasks rooms', roles: ['Admin', 'Manager', 'Housekeeping'] },
+    { name: 'Attendance', path: '/attendance', icon: Users, keywords: 'present absent leave mark', roles: ['Admin', 'Manager', 'Receptionist'] },
+    { name: 'Reports', path: '/reports', icon: FileText, keywords: 'analytics summary lodge', roles: ['Admin', 'Manager'] },
+    { name: 'News', path: '/news', icon: Newspaper, keywords: 'announcements updates', roles: ['Admin'] },
+    { name: 'Ads', path: '/ads', icon: Megaphone, keywords: 'advertisements promotions', roles: ['Admin'] },
 ];
 
 const Header = () => {
@@ -25,12 +26,14 @@ const Header = () => {
     const [isOpen, setIsOpen] = useState(false);
     const searchRef = useRef(null);
 
+    const authorizedPages = ALL_PAGES.filter(p => p.roles.includes(user?.role));
+
     const results = query.trim().length > 0
-        ? ALL_PAGES.filter(p =>
+        ? authorizedPages.filter(p =>
             p.name.toLowerCase().includes(query.toLowerCase()) ||
             p.keywords.toLowerCase().includes(query.toLowerCase())
         )
-        : ALL_PAGES;
+        : authorizedPages;
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -102,21 +105,16 @@ const Header = () => {
                     </div>
 
                     <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-3 border-r border-[#455a64] pr-6">
+                        <div className="flex items-center gap-3 pr-2">
                             <div className="text-right">
-                                <p className="text-sm font-semibold text-white">{user?.username || user?.name || 'ADMIN'}</p>
-                                <p className="text-xs text-slate-400">ID: {user?.lodgeId || '1'}</p>
+                                <p className="text-sm font-semibold text-white">{user?.name || user?.username || 'ADMIN'}</p>
+                                <p className="text-xs text-slate-400">{user?.employeeCode || 'N/A'}</p>
+                                <p className="text-xs text-slate-400">{user?.role || 'N/A'}</p>
                             </div>
-                            <div className="w-9 h-9 rounded-full bg-[#1e2936] flex items-center justify-center text-white font-bold">
+                            <div className="w-9 h-9 rounded-full bg-[#1e2936] flex items-center justify-center text-white font-bold border border-[#455a64]">
                                 {(user?.username || user?.name || 'A').charAt(0).toUpperCase()}
                             </div>
                         </div>
-                        <button
-                            onClick={() => dispatch(logout())}
-                            className="text-sm font-medium text-slate-300 hover:text-white transition-colors bg-transparent hover:bg-[#1e2936] px-4 py-2 rounded"
-                        >
-                            ADMIN ▼
-                        </button>
                     </div>
                 </>
             )}

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
 import DataTable from '../../components/common/DataTable';
 import toast from 'react-hot-toast';
+import { Document, Page, Text, View, StyleSheet, pdf } from '@react-pdf/renderer';
+import * as XLSX from 'xlsx-js-style';
 
 const Attendance = () => {
     const [employees, setEmployees] = useState([]);
@@ -128,6 +130,210 @@ const Attendance = () => {
         } catch (err) {
             console.error('Error in bulk marking present:', err);
             toast.error(err.response?.data?.message || 'Failed to bulk mark attendance', { id: 'bulk-present' });
+        }
+    };
+
+    const exportToPDF = async () => {
+        try {
+            toast.loading('Generating PDF...', { id: 'pdf-export' });
+            const monthName = months[month - 1];
+
+            // Define PDF styles
+            const styles = StyleSheet.create({
+                page: { flexDirection: 'column', padding: 15, backgroundColor: '#ffffff' },
+                header: { fontSize: 14, marginBottom: 5, textAlign: 'center', fontWeight: 'bold', color: '#1e293b' },
+                subHeader: { fontSize: 8, marginBottom: 15, textAlign: 'center', color: '#64748b' },
+                table: { display: "flex", width: "100%", borderStyle: "solid", borderWidth: 1, borderColor: '#cbd5e1', borderRightWidth: 0, borderBottomWidth: 0 },
+                tableRow: { flexDirection: "row" },
+                tableColHeader: { width: "2.7%", borderStyle: "solid", borderWidth: 1, borderColor: '#cbd5e1', borderLeftWidth: 0, borderTopWidth: 0, backgroundColor: "#f1f5f9", paddingVertical: 3 },
+                tableColName: { width: "12%", borderStyle: "solid", borderWidth: 1, borderColor: '#cbd5e1', borderLeftWidth: 0, borderTopWidth: 0, backgroundColor: "#f1f5f9", paddingVertical: 3, paddingLeft: 3 },
+                tableColRole: { width: "7%", borderStyle: "solid", borderWidth: 1, borderColor: '#cbd5e1', borderLeftWidth: 0, borderTopWidth: 0, backgroundColor: "#f1f5f9", paddingVertical: 3, paddingLeft: 3 },
+                tableCol: { width: "2.7%", borderStyle: "solid", borderWidth: 1, borderColor: '#cbd5e1', borderLeftWidth: 0, borderTopWidth: 0, paddingVertical: 3 },
+                tableColNameData: { width: "12%", borderStyle: "solid", borderWidth: 1, borderColor: '#cbd5e1', borderLeftWidth: 0, borderTopWidth: 0, paddingVertical: 3, paddingLeft: 3 },
+                tableColRoleData: { width: "7%", borderStyle: "solid", borderWidth: 1, borderColor: '#cbd5e1', borderLeftWidth: 0, borderTopWidth: 0, paddingVertical: 3, paddingLeft: 3 },
+                tableCellHeader: { fontSize: 6, fontWeight: 'bold', textAlign: 'center', color: '#334155' },
+                tableCellNameHeader: { fontSize: 6, fontWeight: 'bold', textAlign: 'left', color: '#334155' },
+                tableCell: { fontSize: 6, textAlign: 'center', color: '#475569' },
+                tableCellName: { fontSize: 6, textAlign: 'left', color: '#475569' },
+                textPresent: { color: '#16a34a', fontWeight: 'bold' },
+                textAbsent: { color: '#dc2626', fontWeight: 'bold' },
+                textLeave: { color: '#ca8a04', fontWeight: 'bold' },
+                bgOrange: { backgroundColor: '#ffedd5' }
+            });
+
+            // Create PDF Document Structure
+            const MyDocument = (
+                <Document>
+                    <Page size="A4" orientation="landscape" style={styles.page}>
+                        <Text style={styles.header}>Monthly Attendance Report - {monthName} {year}</Text>
+                        <Text style={styles.subHeader}>Generated on: {new Date().toLocaleDateString()}</Text>
+
+                        <View style={styles.table}>
+                            {/* Header Row */}
+                            <View style={styles.tableRow}>
+                                <View style={styles.tableColName}><Text style={styles.tableCellNameHeader}>Employee Name</Text></View>
+                                <View style={styles.tableColRole}><Text style={styles.tableCellNameHeader}>Role</Text></View>
+                                {daysArray.map(d => {
+                                    const isWknd = isWeekend(d, month, year);
+                                    return (
+                                        <View key={d} style={[styles.tableColHeader, isWknd ? styles.bgOrange : {}]}>
+                                            <Text style={styles.tableCellHeader}>{d}</Text>
+                                        </View>
+                                    );
+                                })}
+                            </View>
+
+                            {/* Data Rows */}
+                            {employees.map((emp) => (
+                                <View key={emp.EmployeeId} style={styles.tableRow}>
+                                    <View style={styles.tableColNameData}>
+                                        <Text style={styles.tableCellName}>{emp.FirstName} {emp.LastName || ''}</Text>
+                                    </View>
+                                    <View style={styles.tableColRoleData}>
+                                        <Text style={styles.tableCellName}>{emp.RoleName}</Text>
+                                    </View>
+                                    {daysArray.map(d => {
+                                        const isWknd = isWeekend(d, month, year);
+                                        const status = emp.attendance?.[d];
+                                        const display = status === 'Present' ? 'P' : status === 'Absent' ? 'A' : status === 'Leave' ? 'L' : '-';
+
+                                        let textStyle = styles.tableCell;
+                                        if (status === 'Present') textStyle = [styles.tableCell, styles.textPresent];
+                                        if (status === 'Absent') textStyle = [styles.tableCell, styles.textAbsent];
+                                        if (status === 'Leave') textStyle = [styles.tableCell, styles.textLeave];
+
+                                        return (
+                                            <View key={d} style={[styles.tableCol, isWknd ? styles.bgOrange : {}]}>
+                                                <Text style={textStyle}>{display}</Text>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            ))}
+                        </View>
+                    </Page>
+                </Document>
+            );
+
+            // Generate Blob and Trigger Download
+            const asPdf = pdf();
+            asPdf.updateContainer(MyDocument);
+            const blob = await asPdf.toBlob();
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `Attendance_${monthName}_${year}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            toast.success('PDF Exported Successfully!', { id: 'pdf-export' });
+        } catch (error) {
+            console.error('Error exporting PDF:', error);
+            toast.error('Failed to export PDF', { id: 'pdf-export' });
+        }
+    };
+
+    const exportToExcel = () => {
+        try {
+            const monthName = months[month - 1];
+
+            // Build Worksheet Data
+            const wsData = [
+                [`Monthly Attendance Report - ${monthName} ${year}`],
+                [],
+                ["Employee Name", "Role", ...daysArray.map(d => d.toString())]
+            ];
+
+            employees.forEach(emp => {
+                const row = [
+                    `${emp.FirstName} ${emp.LastName || ''}`.trim(),
+                    emp.RoleName
+                ];
+                daysArray.forEach(d => {
+                    const status = emp.attendance?.[d];
+                    row.push(status === 'Present' ? 'P' : status === 'Absent' ? 'A' : status === 'Leave' ? 'L' : '-');
+                });
+                wsData.push(row);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+            // Apply styles
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let R = range.s.r; R <= range.e.r; ++R) {
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
+                    if (!ws[cellRef]) continue;
+
+                    // Apply default styles
+                    ws[cellRef].s = {
+                        font: { name: "Arial", sz: 10 },
+                        alignment: { vertical: "center", horizontal: C >= 2 ? "center" : "left" }
+                    };
+
+                    // Title Row
+                    if (R === 0 && C === 0) {
+                        ws[cellRef].s.font.bold = true;
+                        ws[cellRef].s.font.sz = 14;
+                    }
+
+                    // Header Row (Row index 2)
+                    if (R === 2) {
+                        ws[cellRef].s.font.bold = true;
+                        ws[cellRef].s.fill = { fgColor: { rgb: "E2E8F0" } }; // slate-200
+                        ws[cellRef].s.border = {
+                            top: { style: "thin", color: { rgb: "CBD5E1" } },
+                            bottom: { style: "thin", color: { rgb: "CBD5E1" } },
+                            left: { style: "thin", color: { rgb: "CBD5E1" } },
+                            right: { style: "thin", color: { rgb: "CBD5E1" } }
+                        };
+                    }
+
+                    // Data Rows and Weekend Highlighting
+                    if (R >= 2 && C >= 2) {
+                        const day = C - 1; // Since Array starts Day 1 at Index 2
+                        const weekend = isWeekend(day, month, year);
+
+                        if (weekend) {
+                            // Apply light orange background to weekends
+                            ws[cellRef].s.fill = { fgColor: { rgb: "FFEDD5" } }; // orange-100
+                            // If it's header, style differently
+                            if (R === 2) {
+                                ws[cellRef].s.fill = { fgColor: { rgb: "FDBA74" } }; // darker orange for header
+                            }
+                        }
+                    }
+
+                    // Simple borders for data rows
+                    if (R > 2) {
+                        ws[cellRef].s.border = {
+                            top: { style: "thin", color: { rgb: "E2E8F0" } },
+                            bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+                            left: { style: "thin", color: { rgb: "E2E8F0" } },
+                            right: { style: "thin", color: { rgb: "E2E8F0" } }
+                        };
+                    }
+                }
+            }
+
+            // Auto size columns slightly
+            ws['!cols'] = [
+                { wch: 25 }, // Employee Name
+                { wch: 15 }, // Role
+                ...daysArray.map(() => ({ wch: 4 })) // Days
+            ];
+
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+
+            XLSX.writeFile(wb, `Attendance_${monthName}_${year}.xlsx`);
+            toast.success('Excel Exported Successfully!');
+        } catch (error) {
+            console.error('Error exporting Excel:', error);
+            toast.error('Failed to export Excel');
         }
     };
 
@@ -262,6 +468,23 @@ const Attendance = () => {
                                     <option key={y} value={y}>{y}</option>
                                 ))}
                             </select>
+                            <div className="h-6 w-px bg-slate-200 mx-2"></div>
+                            <button
+                                onClick={exportToPDF}
+                                className="px-3 py-1.5 text-xs font-semibold rounded border border-slate-300 text-slate-700 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors bg-white shadow-sm flex items-center gap-1.5"
+                                title="Download as PDF"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                                Export PDF
+                            </button>
+                            <button
+                                onClick={exportToExcel}
+                                className="px-3 py-1.5 text-xs font-semibold rounded border border-slate-300 text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-colors bg-white shadow-sm flex items-center gap-1.5"
+                                title="Download as Excel"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="17"></line><line x1="16" y1="13" x2="8" y2="17"></line></svg>
+                                Export Excel
+                            </button>
                         </div>
                     )}
                 </div>
